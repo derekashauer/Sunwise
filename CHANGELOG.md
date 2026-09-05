@@ -2,6 +2,14 @@
 
 All notable changes to Sunwise are documented in this file.
 
+## [0.14.9] - 2026-09-05
+
+### Fixed
+- **Fertilize tasks still never appeared after 0.14.3** - 0.14.3 removed the batching gate and made the sibling auto-skip one-directional, but daily reconciliation was still symmetric: it treated any *watering* as having satisfied a pending *fertilize* task. The moment a fertilize task came due, reconciliation saw a recent watering and pushed it out a full fertilize interval — on every load of the Today view. A fertilize task could never stay due long enough to be seen. Reconciliation now only defers a fertilize task when the plant was actually fertilized; water tasks still accept either action, since fertilizing waters the plant too
+
+### Added
+- **Fertilize due date repair script** - `api/scripts/repair_fertilize_dates.php` recomputes due dates for fertilize tasks that reconciliation pushed into the future, using each plant's real fertilize history. Plants never fertilized, or last fertilized at least one interval ago, become due today; plants fertilized more recently get the date they should have had. Dry run by default, `--apply` to write, safe to run more than once
+
 ## [0.14.8] - 2026-05-18
 
 ### Fixed

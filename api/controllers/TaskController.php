@@ -1601,13 +1601,25 @@ Consider:
             $recurrence = json_decode($task['recurrence'], true);
             $interval = $recurrence['interval'] ?? 7;
 
-            // Check when this plant was last watered OR fertilized (they're interchangeable)
-            $logStmt = db()->prepare('
+            // Which care actions count as having satisfied this task? Fertilizing
+            // also waters the plant, so a water task is deferred by either action.
+            // Watering does NOT fertilize, so a fertilize task is only deferred by
+            // an actual fertilize. Counting waterings here re-deferred a fertilize
+            // task by a full fertilize interval the moment it came due, on every
+            // load of the Today view, so it could never stay due long enough to be
+            // seen. 0.14.3 made the sibling auto-skip one-directional but left this
+            // path symmetric, which is why fertilize tasks stayed invisible.
+            $satisfyingActions = $task['task_type'] === 'fertilize'
+                ? ['fertilize']
+                : ['water', 'fertilize'];
+            $placeholders = implode(',', array_fill(0, count($satisfyingActions), '?'));
+
+            $logStmt = db()->prepare("
                 SELECT MAX(performed_at) as last_action
                 FROM care_log
-                WHERE plant_id = ? AND action IN ("water", "fertilize")
-            ');
-            $logStmt->execute([$task['plant_id']]);
+                WHERE plant_id = ? AND action IN ({$placeholders})
+            ");
+            $logStmt->execute(array_merge([$task['plant_id']], $satisfyingActions));
             $lastAction = $logStmt->fetch();
 
             if ($lastAction && $lastAction['last_action']) {
